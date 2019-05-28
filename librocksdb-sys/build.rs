@@ -272,13 +272,13 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 }
 
 fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=rocksdb/");
-    println!("cargo:rerun-if-changed=snappy/");
-    println!("cargo:rerun-if-changed=lz4/");
-    println!("cargo:rerun-if-changed=zstd/");
-    println!("cargo:rerun-if-changed=zlib/");
-    println!("cargo:rerun-if-changed=bzip2/");
+    // println!("cargo:rerun-if-changed=build.rs");
+    // println!("cargo:rerun-if-changed=rocksdb/");
+    // println!("cargo:rerun-if-changed=snappy/");
+    // println!("cargo:rerun-if-changed=lz4/");
+    // println!("cargo:rerun-if-changed=zstd/");
+    // println!("cargo:rerun-if-changed=zlib/");
+    // println!("cargo:rerun-if-changed=bzip2/");
 
     fail_on_empty_directory("rocksdb");
     fail_on_empty_directory("snappy");
