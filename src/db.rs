@@ -99,8 +99,8 @@ pub struct ReadOptions {
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
-pub struct Snapshot<'a> {
-    db: &'a DB,
+pub struct Snapshot<D: Deref<Target=DB>> {
+    db: D,
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
@@ -550,8 +550,9 @@ impl<'a> Into<DBRawIterator<'a>> for DBIterator<'a> {
     }
 }
 
-impl<'a> Snapshot<'a> {
-    pub fn new(db: &DB) -> Snapshot {
+impl<D: Deref<Target=DB>> Snapshot<D>
+{
+    pub fn new(db: D) -> Snapshot<D> {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
             db,
@@ -575,7 +576,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator {
         readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+        DBIterator::new(&self.db, &readopts, mode)
     }
 
     pub fn iterator_cf_opt(
@@ -585,7 +586,7 @@ impl<'a> Snapshot<'a> {
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+        DBIterator::new_cf(&self.db, cf_handle, &readopts, mode)
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
@@ -600,7 +601,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
-        DBRawIterator::new(self.db, &readopts)
+        DBRawIterator::new(&self.db, &readopts)
     }
 
     pub fn raw_iterator_cf_opt(
@@ -609,7 +610,7 @@ impl<'a> Snapshot<'a> {
         mut readopts: ReadOptions,
     ) -> Result<DBRawIterator, Error> {
         readopts.set_snapshot(self);
-        DBRawIterator::new_cf(self.db, cf_handle, &readopts)
+        DBRawIterator::new_cf(&self.db, cf_handle, &readopts)
     }
 
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
@@ -646,13 +647,16 @@ impl<'a> Snapshot<'a> {
     }
 }
 
-impl<'a> Drop for Snapshot<'a> {
+impl<D: Deref<Target=DB>> Drop for Snapshot<D> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
         }
     }
 }
+
+unsafe impl<D> Send for Snapshot<D> where D: Deref<Target=DB> + Send {}
+unsafe impl<D> Sync for Snapshot<D> where D: Deref<Target=DB> + Sync {}
 
 impl ColumnFamilyDescriptor {
     // Create a new column family descriptor with the specified name and options.
@@ -1180,7 +1184,7 @@ impl DB {
         DBRawIterator::new_cf(self, cf_handle, &opts)
     }
 
-    pub fn snapshot(&self) -> Snapshot {
+    pub fn snapshot(&self) -> Snapshot<&DB> {
         Snapshot::new(self)
     }
 
@@ -1775,7 +1779,7 @@ impl ReadOptions {
         }
     }
 
-    fn set_snapshot(&mut self, snapshot: &Snapshot) {
+    fn set_snapshot<D>(&mut self, snapshot: &Snapshot<D>) where D: Deref<Target=DB> {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }
